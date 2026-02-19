@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -33,7 +33,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up BudgetBakers Wallet sensor entities from a config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([BudgetBakersTransactionsSensor(coordinator, entry)])
+    async_add_entities(
+        [
+            BudgetBakersTransactionsSensor(coordinator, entry),
+            BudgetBakersSpentPlnSensor(coordinator, entry),
+        ]
+    )
 
 
 class BudgetBakersTransactionsSensor(
@@ -80,6 +85,62 @@ class BudgetBakersTransactionsSensor(
             ATTR_LAST_ERROR: data.get("last_error"),
             ATTR_TRANSACTIONS: transactions[:MAX_TRANSACTIONS_IN_ATTRIBUTES],
         }
+
+
+class BudgetBakersSpentPlnSensor(
+    CoordinatorEntity[BudgetBakersDataUpdateCoordinator], SensorEntity
+):
+    """Represents a sensor with total spent amount in PLN for last 7 days."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Spent in PLN (last 7 days)"
+    _attr_icon = "mdi:currency-usd"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_native_unit_of_measurement = "PLN"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 2
+
+    def __init__(
+        self,
+        coordinator: BudgetBakersDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize the spent PLN sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_spent_pln_last_7_days"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": DEFAULT_NAME,
+            "manufacturer": "BudgetBakers",
+            "model": "Wallet API",
+            "entry_type": "service",
+        }
+
+    @property
+    def native_value(self) -> float:
+        """Return total spent amount in PLN for the last 7 days."""
+        transactions = self.coordinator.data.get("transactions", [])
+        return round(_calculate_total_spent_pln(transactions), 2)
+
+
+def _calculate_total_spent_pln(transactions: list[dict[str, Any]]) -> float:
+    """Calculate total spending in PLN based on baseAmount from expense records."""
+    total = 0.0
+    for transaction in transactions:
+        if transaction.get("recordType") != "expense":
+            continue
+
+        base_amount = transaction.get("baseAmount") or {}
+        if base_amount.get("currencyCode") != "PLN":
+            continue
+
+        value = base_amount.get("value")
+        if not isinstance(value, (int, float)):
+            continue
+
+        total += abs(float(value))
+
+    return total
 
 
 def _to_iso_string(value: datetime | None) -> str | None:

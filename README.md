@@ -42,6 +42,10 @@ This integration creates one sensor:
     - `updated_at`: refresh timestamp
     - `last_error`: latest coordinator error (if any)
 
+- `sensor.budgetbakers_wallet_spent_in_pln_last_7_days`
+  - **state**: total amount spent in PLN in last 7 days
+  - calculated from `baseAmount` for records where `recordType=expense` and `baseAmount.currencyCode=PLN`
+
 ## Notes
 
 - API rate limits are handled by Home Assistant retry cycle.
