@@ -1,0 +1,8 @@
+{
+  "name": "BudgetBakers Wallet",
+  "content_in_root": false,
+  "domains": ["budgetbakers_wallet"],
+  "country": ["PL"],
+  "homeassistant": "2024.1.0",
+  "render_readme": true
+}

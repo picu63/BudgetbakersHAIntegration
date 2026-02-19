@@ -1,0 +1,11 @@
+{
+  "domain": "budgetbakers_wallet",
+  "name": "BudgetBakers Wallet",
+  "codeowners": ["@picu63"],
+  "config_flow": true,
+  "documentation": "https://github.com/picu63/BudgetbakersHAIntegration",
+  "iot_class": "cloud_polling",
+  "loggers": ["custom_components.budgetbakers_wallet"],
+  "requirements": [],
+  "version": "0.1.0"
+}

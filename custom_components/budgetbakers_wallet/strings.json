@@ -1,0 +1,29 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect BudgetBakers Wallet",
+        "description": "Enter your Wallet API Bearer token.",
+        "data": {
+          "token": "Bearer token"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate BudgetBakers Wallet",
+        "description": "Your token is no longer valid. Enter a new Bearer token.",
+        "data": {
+          "token": "Bearer token"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid token",
+      "cannot_connect": "Cannot connect to API"
+    },
+    "abort": {
+      "already_configured": "Integration is already configured",
+      "reauth_successful": "Reauthentication successful",
+      "reauth_unsuccessful": "Reauthentication failed"
+    }
+  }
+}
