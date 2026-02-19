@@ -30,7 +30,7 @@ Custom Home Assistant integration for Wallet by BudgetBakers.
 
 ## Entity
 
-This integration creates one sensor:
+This integration creates two sensors:
 
 - `sensor.budgetbakers_wallet_transactions_last_7_days`
   - **state**: number of transactions from last 7 days
