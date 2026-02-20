@@ -16,6 +16,7 @@ from .const import (
     ATTR_ACTIVE_ACCOUNT_IDS,
     ATTR_LAST_ERROR,
     ATTR_REQUESTS_MADE,
+    ATTR_TRANSACTION_SUM_30_DAYS,
     ATTR_TOTAL_TRANSACTIONS,
     ATTR_TRANSACTIONS,
     ATTR_UPDATED_AT,
@@ -37,6 +38,7 @@ async def async_setup_entry(
         [
             BudgetBakersTransactionsSensor(coordinator, entry),
             BudgetBakersSpentPlnSensor(coordinator, entry),
+            BudgetBakersTransactionSum30DaysSensor(coordinator, entry),
         ]
     )
 
@@ -121,6 +123,44 @@ class BudgetBakersSpentPlnSensor(
         """Return total spent amount in PLN for the last 7 days."""
         transactions = self.coordinator.data.get("transactions", [])
         return round(_calculate_total_spent_pln(transactions), 2)
+
+
+class BudgetBakersTransactionSum30DaysSensor(
+    CoordinatorEntity[BudgetBakersDataUpdateCoordinator], SensorEntity
+):
+    """Represents a sensor with sum of transactions in PLN for last 30 days."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Transaction sum in PLN (last 30 days)"
+    _attr_icon = "mdi:cash-multiple"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_native_unit_of_measurement = "PLN"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 2
+
+    def __init__(
+        self,
+        coordinator: BudgetBakersDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize the 30-day transaction sum sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_transaction_sum_pln_last_30_days"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": DEFAULT_NAME,
+            "manufacturer": "BudgetBakers",
+            "model": "Wallet API",
+            "entry_type": "service",
+        }
+
+    @property
+    def native_value(self) -> float:
+        """Return sum of transaction values in PLN for the last 30 days."""
+        value = self.coordinator.data.get(ATTR_TRANSACTION_SUM_30_DAYS, 0.0)
+        if isinstance(value, (int, float)):
+            return round(float(value), 2)
+        return 0.0
 
 
 def _calculate_total_spent_pln(transactions: list[dict[str, Any]]) -> float:

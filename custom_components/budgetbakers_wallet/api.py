@@ -10,6 +10,8 @@ from aiohttp import ClientError, ClientResponseError, ClientSession
 
 from .const import ACCOUNTS_ENDPOINT, BASE_URL, DEFAULT_PAGE_LIMIT, RECORDS_ENDPOINT
 
+EXCLUDED_CATEGORY_NAME = "Przelew, wypłata"
+
 
 class BudgetBakersApiError(Exception):
     """Base API error."""
@@ -59,14 +61,23 @@ class BudgetBakersApiClient:
 
     async def get_last_week_transactions_all_active_accounts(self) -> WalletFetchResult:
         """Fetch records from all non-archived accounts for last 7 days."""
+        return await self.get_transactions_all_active_accounts(days=7)
+
+    async def get_transactions_all_active_accounts(self, days: int) -> WalletFetchResult:
+        """Fetch records from all active accounts for a given number of days."""
         self._requests_made = 0
 
         accounts = await self._fetch_accounts()
-        active_accounts = [acc for acc in accounts if not bool(acc.get("archived", False))]
-        active_account_ids = [acc["id"] for acc in active_accounts if acc.get("id")]
+        filtered_accounts = [
+            acc
+            for acc in accounts
+            if not bool(acc.get("archived", False))
+            and not bool(acc.get("excludeFromStats", False))
+        ]
+        active_account_ids = [acc["id"] for acc in filtered_accounts if acc.get("id")]
 
         now_utc = datetime.now(UTC)
-        start_utc = now_utc - timedelta(days=7)
+        start_utc = now_utc - timedelta(days=days)
 
         all_transactions: list[dict[str, Any]] = []
         for account_id in active_account_ids:
@@ -128,7 +139,11 @@ class BudgetBakersApiClient:
             ]
 
             payload = await self._request_json(endpoint=RECORDS_ENDPOINT, params=params)
-            records.extend(payload.get("records", []))
+            records.extend(
+                record
+                for record in payload.get("records", [])
+                if not _is_excluded_transfer_withdrawal(record)
+            )
 
             next_offset = payload.get("nextOffset")
             if next_offset is None:
@@ -186,3 +201,13 @@ class BudgetBakersApiClient:
             raise BudgetBakersApiError(f"Network error: {err}") from err
         except TimeoutError as err:
             raise BudgetBakersApiError("Request timed out") from err
+
+
+def _is_excluded_transfer_withdrawal(record: dict[str, Any]) -> bool:
+    """Return True if record should be excluded by category name."""
+    category = record.get("category")
+    if not isinstance(category, dict):
+        return False
+
+    category_name = category.get("name")
+    return isinstance(category_name, str) and category_name == EXCLUDED_CATEGORY_NAME

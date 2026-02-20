@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -40,14 +40,24 @@ class BudgetBakersDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API and return normalized payload for entities."""
         try:
-            result = await self._api_client.get_last_week_transactions_all_active_accounts()
+            now_utc = datetime.now(UTC)
+            seven_days_ago = now_utc - timedelta(days=7)
+
+            result = await self._api_client.get_transactions_all_active_accounts(days=30)
+            transactions_last_7_days = [
+                item
+                for item in result.transactions
+                if _is_record_on_or_after(item, seven_days_ago)
+            ]
+
             return {
-                "transactions": result.transactions,
-                "total_transactions": len(result.transactions),
+                "transactions": transactions_last_7_days,
+                "total_transactions": len(transactions_last_7_days),
+                "transaction_sum_30_days": _calculate_transaction_sum_30_days(result.transactions),
                 "account_count": result.account_count,
                 "active_account_ids": result.active_account_ids,
                 "requests_made": result.requests_made,
-                "updated_at": datetime.now(UTC),
+                "updated_at": now_utc,
                 "last_error": None,
             }
         except BudgetBakersAuthError as err:
@@ -62,3 +72,34 @@ class BudgetBakersDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed("Rate limit exceeded") from err
         except BudgetBakersApiError as err:
             raise UpdateFailed(f"API error: {err}") from err
+
+
+def _is_record_on_or_after(record: dict[str, Any], threshold: datetime) -> bool:
+    """Return True if recordDate is on or after threshold."""
+    record_date = record.get("recordDate")
+    if not isinstance(record_date, str):
+        return False
+
+    try:
+        parsed_date = datetime.fromisoformat(record_date.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+
+    return parsed_date >= threshold
+
+
+def _calculate_transaction_sum_30_days(transactions: list[dict[str, Any]]) -> float:
+    """Calculate sum of absolute transaction values in PLN for last 30 days."""
+    total = 0.0
+    for transaction in transactions:
+        base_amount = transaction.get("baseAmount") or {}
+        if base_amount.get("currencyCode") != "PLN":
+            continue
+
+        value = base_amount.get("value")
+        if not isinstance(value, (int, float)):
+            continue
+
+        total += abs(float(value))
+
+    return round(total, 2)

@@ -6,8 +6,9 @@ Custom Home Assistant integration for Wallet by BudgetBakers.
 
 - Installable through HACS (custom repository)
 - Config flow with Bearer token input
-- Fetches all transactions from the last 7 days
-- Includes only active accounts (`archived=false`)
+- Fetches transactions from the last 30 days (used to calculate 7-day and 30-day sensors)
+- Includes only accounts with `archived=false` and `excludeFromStats=false`
+- Excludes transactions with `category.name = "Przelew, wypłata"`
 - Polling every 15 minutes
 - One sensor with transaction count as state and full transaction list in attributes
 
@@ -30,7 +31,7 @@ Custom Home Assistant integration for Wallet by BudgetBakers.
 
 ## Entity
 
-This integration creates two sensors:
+This integration creates three sensors:
 
 - `sensor.budgetbakers_wallet_transactions_last_7_days`
   - **state**: number of transactions from last 7 days
@@ -45,6 +46,10 @@ This integration creates two sensors:
 - `sensor.budgetbakers_wallet_spent_in_pln_last_7_days`
   - **state**: total amount spent in PLN in last 7 days
   - calculated from `baseAmount` for records where `recordType=expense` and `baseAmount.currencyCode=PLN`
+
+- `sensor.budgetbakers_wallet_transaction_sum_in_pln_last_30_days`
+  - **state**: sum of transaction values in PLN in last 30 days
+  - calculated from absolute `baseAmount.value` for records where `baseAmount.currencyCode=PLN`
 
 ## Notes
 
